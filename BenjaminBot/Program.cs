@@ -1,41 +1,42 @@
-﻿using NetCord;
+﻿using BenjaminBot.Data;
+using NetCord;
 using NetCord.Gateway;
 using NetCord.Logging;
 
 namespace BenjaminBot;
 
-static class Program
+public static class Program
 {
+    public static GatewayClient Client { get; private set; }
+
+    public static readonly RequestHandler Requests = new RequestHandler();
+    public static readonly DataParser Parser = new DataParser();
+    
     static async Task Main(string[] args)
     {
         DotNetEnv.Env.Load();
         string? token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-
+        
         if (token is null)
         {
             Console.WriteLine("No token found");
             return;
         }
         
-        GatewayClient client = new(new BotToken(token), new GatewayClientConfiguration
+        Client = new GatewayClient(new BotToken(token), new GatewayClientConfiguration
         {
             Logger = new ConsoleLogger(),
+            // Intents = GatewayIntents.All
         });
 
-        string json = await GetBosses();
-        await client.Rest.SendMessageAsync(1271785546544320512, $"```json\n{json.Substring(0, 1988)}\n```");
+        Client.Ready += async readyArgs => await OnReady(readyArgs);
         
-        await client.StartAsync();
+        await Client.StartAsync();
         await Task.Delay(-1);
     }
-    
-    public static async Task<string> GetBosses()
-    {
-        using HttpClient client = new HttpClient();
-        var response = await client.GetAsync("https://data.ninjakiwi.com/btd6/bosses");
-        response.EnsureSuccessStatusCode();
 
-        string responseBody = await response.Content.ReadAsStringAsync();
-        return responseBody;
+    private static async Task OnReady(ReadyEventArgs readyArgs)
+    {
+        await Parser.ParseBossesData();
     }
 }
